@@ -34,12 +34,15 @@ ${GCLOUD} compute instances create \
 trap cleanup EXIT
 
 ${GCLOUD} compute scp --compress --recurse \
+       --scp-flag="-o ConnectionAttempts=30" --scp-flag="-o ConnectTimeout=5" \
        $(pwd) ${USERNAME}@${INSTANCE_NAME}:${REMOTE_WORKSPACE} \
        --ssh-key-file=${KEYNAME}
 
 ${GCLOUD} compute ssh --ssh-key-file=${KEYNAME} \
+       --ssh-flag="-o ConnectionAttempts=30" --ssh-flag="-o ConnectTimeout=5" \
        ${USERNAME}@${INSTANCE_NAME} -- ${COMMAND}
 
 ${GCLOUD} compute scp --compress --recurse \
+       --ssh-flag="-o ConnectionAttempts=30" --ssh-flag="-o ConnectTimeout=5" \
        ${USERNAME}@${INSTANCE_NAME}:${REMOTE_WORKSPACE}* $(pwd) \
        --ssh-key-file=${KEYNAME}
