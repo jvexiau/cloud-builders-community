@@ -15,6 +15,8 @@ ZONE=${ZONE:-us-central1-f}
 INSTANCE_ARGS=${INSTANCE_ARGS:---preemptible}
 GCLOUD=${GCLOUD:-gcloud}
 
+CONNECTION_RETRIES=${CONNECTION_RETRIES:-10}
+
 ${GCLOUD} config set compute/zone ${ZONE}
 
 KEYNAME=builder-key
@@ -33,16 +35,27 @@ ${GCLOUD} compute instances create \
 
 trap cleanup EXIT
 
+retries=0
+while ! ${GCLOUD} compute ssh --ssh-key-file=${KEYNAME} \
+                  ${USERNAME}@${INSTANCE_NAME} -- exit
+do
+    retries=$((retries+1))
+    if [[ "$retries" -lt ${CONNECTION_RETRIES} ]]; then
+        echo "SSH not ready. Trying again in 5 sec..."
+        sleep 5
+    else
+        echo "ERROR: Couldn't connect to ${INSTANCE_NAME} through SSH"
+        exit 1
+    fi
+done
+
 ${GCLOUD} compute scp --compress --recurse \
-       --scp-flag="-o ConnectionAttempts=30" --scp-flag="-o ConnectTimeout=5" \
        $(pwd) ${USERNAME}@${INSTANCE_NAME}:${REMOTE_WORKSPACE} \
        --ssh-key-file=${KEYNAME}
 
 ${GCLOUD} compute ssh --ssh-key-file=${KEYNAME} \
-       --ssh-flag="-o ConnectionAttempts=30" --ssh-flag="-o ConnectTimeout=5" \
        ${USERNAME}@${INSTANCE_NAME} -- ${COMMAND}
 
 ${GCLOUD} compute scp --compress --recurse \
-       --ssh-flag="-o ConnectionAttempts=30" --ssh-flag="-o ConnectTimeout=5" \
        ${USERNAME}@${INSTANCE_NAME}:${REMOTE_WORKSPACE}* $(pwd) \
        --ssh-key-file=${KEYNAME}
